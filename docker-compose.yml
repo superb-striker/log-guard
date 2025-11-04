@@ -1,0 +1,70 @@
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: log-guard-postgres
+    environment:
+      POSTGRES_DB: log-guard
+      POSTGRES_USER: guard
+      POSTGRES_PASSWORD: guard_secret
+    ports:
+      - "5432:5432"      # Mapping host machine port 5432 to container port 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # Stores DB files permanently
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guard -d log-guard"]
+    restart: unless-stopped    # If container crashes, auto restart unless manually stoppe
+    networks:
+      - logguard-net           # Join shared private network: can talk to RabbitMQ + app
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: log-guard-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_management load_definitions \"/etc/rabbitmq/definitions.json\"" 
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq-definitions.json:/etc/rabbitmq/definitions.json   
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - logguard-net
+
+  log-guard:
+    build: .     # Build Docker image from current project folder. Uses Dockerfile in root
+    container_name: log-guard-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/log-guard
+      SPRING_DATASOURCE_USERNAME: guard
+      SPRING_DATASOURCE_PASSWORD: guard_secret
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: admin
+      SPRING_RABBITMQ_PASSWORD: admin
+      WEBHOOK_URL: https://webhook.site/19e51876-7005-477e-89eb-a29b28f10a54
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - logguard-net
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  logguard-net:

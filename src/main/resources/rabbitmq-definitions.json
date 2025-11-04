@@ -1,0 +1,70 @@
+{
+  "rabbit_version": "3.13.0",
+  "vhosts": [{ "name": "/" }],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "guard.exchange",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "guard.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "guard.logs.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "guard.dlx",
+        "x-dead-letter-routing-key": "log.dead",
+        "x-message-ttl": 300000,
+        "x-max-length": 100000
+      }
+    },
+    {
+      "name": "guard.logs.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "guard.exchange",
+      "vhost": "/",
+      "destination": "guard.logs.queue",
+      "destination_type": "queue",
+      "routing_key": "log.ingest",
+      "arguments": {}
+    },
+    {
+      "source": "guard.dlx",
+      "vhost": "/",
+      "destination": "guard.logs.dlq",
+      "destination_type": "queue",
+      "routing_key": "log.dead",
+      "arguments": {}
+    }
+  ]
+}

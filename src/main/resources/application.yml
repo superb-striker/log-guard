@@ -1,0 +1,114 @@
+spring:
+  application:
+    name: log-guard
+
+  # Database setup
+  datasource:
+    url: jdbc:postgresql://localhost:5432/log-guard
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    hikari:
+      maximum-pool-size: 10            # Max 10 DB connections at once
+      minimum-idle: 2                  # Keep at least 2 ready
+      connection-timeout: 30000        # Wait max 30 sec for a free connection
+      idle-timeout: 600000             # Close idle connection after 10 min
+  
+  # Hibernate ORM setup
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO}        # Controls schema behavioue
+    show-sql: true                 # Prints SQL queries in logs
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect       # Tells Hibernate to generate PostgreSQL-compatible SQL  
+        format_sql: true
+
+  # RabbitMQ Setup 			
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${SPRING_RABBITMQ_USERNAME}
+    password: ${SPRING_RABBITMQ_PASSWORD} 
+    # Consumer
+    listener:
+      simple:
+        acknowledge-mode: manual          # Manual ACK - critical for DLQ
+        retry:
+          enabled: false                  # Retry handled by Spring Retry + DLQ
+        prefetch: 10                      # Consumer fetches max 10 unacknowledged messages at once
+    # Publisher
+    template:
+      # Retry with Exponential backoff
+      retry:
+        enabled: true
+        max-retries: 3
+        initial-interval: 1000     # 1 second
+        multiplier: 2.0            # exponential growth
+        max-interval: 10000        # cap at 10 seconds
+
+
+# Custom App Config
+guard:
+  rabbitmq:
+    # Main exchange / queue
+    exchange: guard.exchange
+    queue: guard.logs.queue
+    routing-key: log.ingest
+    # Dead Letter Exchange / Queue
+    dlx: guard.dlx
+    dlq: guard.logs.dlq
+    dlq-routing-key: log.dead
+  # Webhook alert endpoint
+  webhook:
+    url: ${WEBHOOK_URL}
+    timeout-seconds: 10
+  # PII Redaction patterns - App will hide sensitive data before storing/sending logs.
+  redaction:
+    enabled: true
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,rabbitmq,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    rabbit:
+      enabled: true
+    db:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+# App Info 
+info:
+  app:
+    name: Log-Guard
+    version: 1.0.0
+    description: Event-driven log pipeline with PII redaction and CRITICAL alerting
+
+# Logging
+logging:
+  level:
+    com.example.logguard: DEBUG
+    org.springframework.amqp: INFO
+    org.springframework.retry: DEBUG
+  pattern:
+    console: "%clr(%d{HH:mm:ss.SSS}){faint} %clr(%-5level){highlight} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} : %msg%n"
+
+---
+# Docker profile overrides
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://postgres:5432/log-guard
+  rabbitmq:
+    host: rabbitmq
