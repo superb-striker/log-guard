@@ -1,6 +1,6 @@
 package com.example.logguard.repository;
 
-import com.example.logguard.model.LogEntry;
+import com.example.logguard.entity.LogEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
