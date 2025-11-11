@@ -61,19 +61,24 @@ public class LogWorkerListener {
         queues         = "${guard.rabbitmq.queue}",
         containerFactory = "rabbitListenerContainerFactory"
     )
-    @Transactional
+    @Transactional   // save succeeds fully OR rolls back - atomic
     public void processLog(
             LogEntryDTO dto,
             Channel channel,
-            @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
-
+            @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) 
+    throws IOException {
+    	/**
+    	 * LogEntryDTO dto : the incoming log message. Spring automatically converts RabbitMQ JSON into Java object.
+    	 * Channel channel : Low-level RabbitMQ connection channel. Used for: ACK = success, NACK = failure
+    	 * deliveryTag : Unique RabbitMQ ID for this message. Needed to tell RabbitMQ: remove it / retry it / dead-letter it
+    	 */
         log.debug("Worker received: service=[{}] level=[{}]", dto.getService(), dto.getLevel());
 
         try {
-            // ── Step 1: PII Redaction ─────────────────────────────────────────
+            // Step 1: PII Redaction 
             String redactedMessage = redactionService.redact(dto.getMessage());
 
-            // ── Step 2: Persist to PostgreSQL ─────────────────────────────────
+            // Step 2: Persist to PostgreSQL
             LogEntry entity = LogEntry.builder()
                 .service(dto.getService())
                 .level(dto.getLevel())
@@ -85,8 +90,7 @@ public class LogWorkerListener {
                 .processedAt(Instant.now())
                 .build();
 
-            // ── Step 3: CRITICAL alerting (async, before persist so alert fires
-            //           even if DB is temporarily slow) ─────────────────────────
+            // Step 3: CRITICAL alerting (async, before persist so alert fires even if DB is temporarily slow)
             boolean isCritical = CRITICAL.equalsIgnoreCase(dto.getLevel());
             if (isCritical) {
                 // alertService.sendCriticalAlert is @Async - returns immediately
@@ -94,16 +98,15 @@ public class LogWorkerListener {
                 entity.setAlertSent(true);
             }
 
-            repository.save(entity);
+            repository.save(entity);   // This stores final clean log in database. Spring JPA converts: Java object -> SQL INSERT
 
-            log.info("✓ Processed log id=[{}] service=[{}] level=[{}] critical=[{}]",
+            log.info("Processed log id=[{}] service=[{}] level=[{}] critical=[{}]",
                 entity.getId(), entity.getService(), entity.getLevel(), isCritical);
 
-            // ── Step 4: ACK - remove from queue ──────────────────────────────
+            // Step 4: ACK - remove from queue
             channel.basicAck(deliveryTag, false);
-
         } catch (Exception ex) {
-            log.error("✗ Failed to process log - routing to DLQ. Error: {}", ex.getMessage(), ex);
+            log.error("Failed to process log - routing to DLQ. Error: {}", ex.getMessage(), ex);
 
             // NACK without requeue -> triggers DLX routing to guard.logs.dlq
             channel.basicNack(deliveryTag, false, false);
