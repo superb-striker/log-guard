@@ -16,7 +16,7 @@ spring:
   # Hibernate ORM setup
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO}        # Controls schema behavioue
+      ddl-auto: ${DDL_AUTO:update}        # Controls schema behavioue
     show-sql: true                 # Prints SQL queries in logs
     properties:
       hibernate:
@@ -60,7 +60,7 @@ guard:
     dlq-routing-key: log.dead
   # Webhook alert endpoint
   webhook:
-    url: ${WEBHOOK_URL}
+    url: ${WEBHOOK_URL:}
     timeout-seconds: 10
   # PII Redaction patterns - App will hide sensitive data before storing/sending logs.
   redaction:
@@ -112,3 +112,6 @@ spring:
     url: jdbc:postgresql://postgres:5432/log-guard
   rabbitmq:
     host: rabbitmq
+    port: 5672
+    username: admin
+    password: admin

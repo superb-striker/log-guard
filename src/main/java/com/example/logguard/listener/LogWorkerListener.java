@@ -61,7 +61,6 @@ public class LogWorkerListener {
         queues         = "${guard.rabbitmq.queue}",
         containerFactory = "rabbitListenerContainerFactory"
     )
-    @Transactional   // save succeeds fully OR rolls back - atomic
     public void processLog(
             LogEntryDTO dto,
             Channel channel,
@@ -98,7 +97,7 @@ public class LogWorkerListener {
                 entity.setAlertSent(true);
             }
 
-            repository.save(entity);   // This stores final clean log in database. Spring JPA converts: Java object -> SQL INSERT
+            repository.saveAndFlush(entity);   // This stores final clean log in database. Spring JPA converts: Java object -> SQL INSERT
 
             log.info("Processed log id=[{}] service=[{}] level=[{}] critical=[{}]",
                 entity.getId(), entity.getService(), entity.getLevel(), isCritical);

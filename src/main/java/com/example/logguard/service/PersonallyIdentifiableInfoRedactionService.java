@@ -60,9 +60,11 @@ public class PersonallyIdentifiableInfoRedactionService {
      *   first.last+tag@sub.domain.org
      *   admin@192.168.1.1   (IP-literal domains - valid but unusual)
      */
-    private static final Pattern PHONE = Pattern.compile(
-	    "\\b(?:(?:\\+91|91|0)[\\s\\-]?)?[6-9](?:[\\s\\-]?\\d){9}\\b"
-	);
+    private static final Pattern EMAIL = Pattern.compile(
+        "[a-zA-Z0-9!#$%&'*+/=?^_`{|}~.-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+        Pattern.CASE_INSENSITIVE
+    );
+
 
 
     /**
@@ -124,8 +126,8 @@ public class PersonallyIdentifiableInfoRedactionService {
      *   91 9876543210
      */
     private static final Pattern PHONE = Pattern.compile(
-        "\\b(?:(?:\\+91|91|0)[\\s\\-]?)?[6-9]\\d{2}[\\s\\-]?\\d{3}[\\s\\-]?\\d{4}\\b"
-    );
+	    "\\b(?:(?:\\+91|91|0)[\\s\\-]?)?[6-9](?:[\\s\\-]?\\d){9}\\b"
+	);
 
     /**
      * AADHAAR - 12-digit Indian government identity number.

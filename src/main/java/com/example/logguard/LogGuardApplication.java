@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  *
  * Architecture overview:
  *  ┌─────────────┐    AMQP      ┌──────────────────┐    JPA     ┌──────────────┐
- *  │ REST Ingest │ ──────────>  │  Worker Listener  │ ────────> │  PostgreSQL  │
+ *  │ REST Ingest │ ──────────>  │  Worker Listener │ ────────>  │  PostgreSQL  │
  *  └─────────────┘              └──────────────────┘            └──────────────┘
  *                                        │  CRITICAL?
  *                                        ▼
