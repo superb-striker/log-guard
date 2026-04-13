@@ -1,0 +1,344 @@
+<svg width="100%" viewBox="0 0 680 825" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Log-Guard Pipeline Architecture</title>
+  <desc>Event-driven log pipeline: REST ingestion, RabbitMQ, PII redaction worker, PostgreSQL persistence, and CRITICAL alerting with exponential backoff retry.</desc>
+
+  <style>
+    :root {
+      --bg:           #ffffff;
+      --text:         #111111;
+      --muted:        #666666;
+      --border:       rgba(0,0,0,0.15);
+
+      /* node fills */
+      --gray-fill:    #444441;
+      --gray-stroke:  #b4b2a9;
+      --gray-title:   #d3d1c7;
+      --gray-sub:     #b4b2a9;
+
+      --blue-fill:    #0c447c;
+      --blue-stroke:  #85b7eb;
+      --blue-title:   #b5d4f4;
+      --blue-sub:     #85b7eb;
+
+      --purple-fill:  #3c3489;
+      --purple-stroke:#afa9ec;
+      --purple-title: #cecbf6;
+      --purple-sub:   #afa9ec;
+
+      --amber-fill:   #633806;
+      --amber-stroke: #ef9f27;
+      --amber-title:  #fac775;
+      --amber-sub:    #ef9f27;
+
+      --teal-fill:    #085041;
+      --teal-stroke:  #5dcaa5;
+      --teal-title:   #9fe1cb;
+      --teal-sub:     #5dcaa5;
+
+      --coral-fill:   #712b13;
+      --coral-stroke: #f0997b;
+      --coral-title:  #f5c4b3;
+      --coral-sub:    #f0997b;
+
+      --green-fill:   #27500a;
+      --green-stroke: #97c459;
+      --green-title:  #c0dd97;
+      --green-sub:    #97c459;
+
+      --red-fill:     #791f1f;
+      --red-stroke:   #f09595;
+      --red-title:    #f7c1c1;
+      --red-sub:      #f09595;
+
+      --danger:       #e24b4a;
+      --success:      #639922;
+      --arrow:        #888780;
+      --label:        #888780;
+      --divider:      rgba(0,0,0,0.12);
+      --dashed:       rgba(0,0,0,0.2);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:           #0b0b0c;
+        --text:         #e8e8e8;
+        --muted:        #b0b0b0;
+        --border:       rgba(255,255,255,0.15);
+
+        --gray-fill:    #2c2c2a;
+        --gray-stroke:  #5f5e5a;
+        --gray-title:   #d3d1c7;
+        --gray-sub:     #888780;
+
+        --blue-fill:    #042c53;
+        --blue-stroke:  #185fa5;
+        --blue-title:   #b5d4f4;
+        --blue-sub:     #378add;
+
+        --purple-fill:  #26215c;
+        --purple-stroke:#534ab7;
+        --purple-title: #cecbf6;
+        --purple-sub:   #7f77dd;
+
+        --amber-fill:   #412402;
+        --amber-stroke: #854f0b;
+        --amber-title:  #fac775;
+        --amber-sub:    #ba7517;
+
+        --teal-fill:    #04342c;
+        --teal-stroke:  #0f6e56;
+        --teal-title:   #9fe1cb;
+        --teal-sub:     #1d9e75;
+
+        --coral-fill:   #4a1b0c;
+        --coral-stroke: #993c1d;
+        --coral-title:  #f5c4b3;
+        --coral-sub:    #d85a30;
+
+        --green-fill:   #173404;
+        --green-stroke: #3b6d11;
+        --green-title:  #c0dd97;
+        --green-sub:    #639922;
+
+        --red-fill:     #501313;
+        --red-stroke:   #a32d2d;
+        --red-title:    #f7c1c1;
+        --red-sub:      #e24b4a;
+
+        --danger:       #e24b4a;
+        --success:      #639922;
+        --arrow:        #5f5e5a;
+        --label:        #888780;
+        --divider:      rgba(255,255,255,0.1);
+        --dashed:       rgb(255, 255, 255);
+      }
+    }
+
+    text        { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .section    { font-size:12px; font-weight:500; letter-spacing:0.08em; fill:var(--muted); opacity:0.7; }
+    .title      { font-size:14px; font-weight:500; }
+    .sub        { font-size:12px; font-weight:400; }
+    .label      { font-size:12px; fill:var(--label); }
+  </style>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="var(--arrow)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-danger" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arr-success" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="var(--success)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="100%" height="100%" fill="var(--bg)"/>
+
+  <!-- ── Section labels ─────────────────────────────────────────────── -->
+  <text x="40" y="38"  class="section">INGESTION</text>
+  <text x="40" y="228" class="section">BROKER</text>
+  <text x="40" y="408" class="section">WORKER</text>
+  <text x="40" y="578" class="section">PERSISTENCE</text>
+  <text x="40" y="698" class="section">RESILIENCE</text>
+
+  <!-- ── Dividers ───────────────────────────────────────────────────── -->
+  <line x1="40" y1="46"  x2="640" y2="46"  stroke="var(--divider)" stroke-width="0.5"/>
+  <line x1="40" y1="236" x2="640" y2="236" stroke="var(--divider)" stroke-width="0.5"/>
+  <line x1="40" y1="416" x2="640" y2="416" stroke="var(--divider)" stroke-width="0.5"/>
+  <line x1="40" y1="588" x2="640" y2="588" stroke="var(--divider)" stroke-width="0.5"/>
+  <line x1="40" y1="708" x2="640" y2="708" stroke="var(--divider)" stroke-width="0.5"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       ROW 1: Ingestion
+  ══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- Client -->
+  <g>
+    <rect x="52" y="60" width="130" height="56" rx="8" fill="var(--gray-fill)" stroke="var(--gray-stroke)" stroke-width="0.5"/>
+    <text x="117" y="83"  class="title" text-anchor="middle" dominant-baseline="central" fill="var(--gray-title)">Client</text>
+    <text x="117" y="101" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--gray-sub)">POST /api/logs</text>
+  </g>
+
+  <!-- Arrow client → controller -->
+  <line x1="182" y1="88" x2="234" y2="88" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="208" y="82" class="label" text-anchor="middle">JSON</text>
+
+  <!-- RestController -->
+  <g>
+    <rect x="236" y="60" width="200" height="56" rx="8" fill="var(--blue-fill)" stroke="var(--blue-stroke)" stroke-width="0.5"/>
+    <text x="336" y="83"  class="title" text-anchor="middle" dominant-baseline="central" fill="var(--blue-title)">RestController</text>
+    <text x="336" y="101" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--blue-sub)">@Valid + jakarta.validation</text>
+  </g>
+
+  <!-- Validation error path -->
+  <line x1="436" y1="88" x2="530" y2="88" stroke="var(--danger)" stroke-width="0.8" marker-end="url(#arr-danger)"/>
+  <text x="483" y="82" class="label" text-anchor="middle" fill="var(--danger)">400 Bad Request</text>
+  <g>
+    <rect x="532" y="66" width="96" height="44" rx="8" fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
+    <text x="580" y="80"  class="sub" text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Validation</text>
+    <text x="580" y="98" class="sub" text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Error</text>
+  </g>
+
+  <!-- Arrow controller → ingestion service -->
+  <line x1="336" y1="116" x2="336" y2="170" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- LogIngestionService -->
+  <g>
+    <rect x="236" y="172" width="200" height="44" rx="8" fill="var(--purple-fill)" stroke="var(--purple-stroke)" stroke-width="0.5"/>
+    <text x="336" y="190" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--purple-title)">LogIngestionService</text>
+    <text x="336" y="207" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--purple-sub)">RabbitTemplate.convertAndSend()</text>
+  </g>
+
+  <!-- Arrow ingestion → exchange -->
+  <line x1="336" y1="216" x2="336" y2="252" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="360" y="237" class="label" text-anchor="start">AMQP</text>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       ROW 2: Broker
+  ══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- guard.exchange -->
+  <g>
+    <rect x="210" y="254" width="252" height="56" rx="8" fill="var(--amber-fill)" stroke="var(--amber-stroke)" stroke-width="0.5"/>
+    <text x="336" y="277" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--amber-title)">guard.exchange</text>
+    <text x="336" y="295" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--amber-sub)">DirectExchange - routing key: log.ingest</text>
+  </g>
+
+  <!-- Arrow exchange → queue -->
+  <line x1="336" y1="310" x2="336" y2="346" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- guard.logs.queue -->
+  <g>
+    <rect x="180" y="348" width="312" height="56" rx="8" fill="var(--amber-fill)" stroke="var(--amber-stroke)" stroke-width="0.5"/>
+    <text x="336" y="370" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--amber-title)">guard.logs.queue</text>
+    <text x="336" y="388" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--amber-sub)">x-dead-letter-exchange · x-message-ttl: 5min</text>
+  </g>
+
+  <!-- Arrow queue → worker -->
+  <line x1="336" y1="404" x2="336" y2="432" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       ROW 3: Worker
+  ══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- Worker outer box -->
+  <g>
+    <rect x="90" y="434" width="482" height="112" rx="8" fill="var(--teal-fill)" stroke="var(--teal-stroke)" stroke-width="0.5"/>
+    <text x="336" y="448" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--teal-title)">LogWorkerListener  (@RabbitListener)</text>
+
+    <!-- Step 1: PII Redaction -->
+    <g>
+      <rect x="100" y="470" width="150" height="60" rx="6" fill="var(--teal-fill)" stroke="var(--teal-stroke)" stroke-width="0.5"/>
+      <text x="176" y="480" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--teal-title)">1. PIIRedactionService</text>
+      <text x="180" y="500" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">Email · IP · Card</text>
+      <text x="178" y="515" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">Aadhaar · Phone · Token</text>
+    </g>
+
+    <!-- Arrow 1 → 2 -->
+    <line x1="250" y1="500" x2="268" y2="500" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+    <!-- Step 2: Alert? -->
+    <g>
+      <rect x="270" y="470" width="130" height="60" rx="6" fill="var(--teal-fill)" stroke="var(--teal-stroke)" stroke-width="0.5"/>
+      <text x="335" y="480" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--teal-title)">2. Alert?</text>
+      <text x="335" y="500" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">level == CRITICAL</text>
+      <text x="335" y="515" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">→ AlertService</text>
+    </g>
+
+    <!-- Arrow 2 → 3 -->
+    <line x1="400" y1="500" x2="420" y2="500" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+    <!-- Step 3: Persist -->
+    <g>
+      <rect x="422" y="470" width="132" height="60" rx="6" fill="var(--teal-fill)" stroke="var(--teal-stroke)" stroke-width="0.5"/>
+      <text x="488" y="480" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--teal-title)">3. Persist</text>
+      <text x="488" y="500" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">LogEntry → JPA</text>
+      <text x="488" y="515" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">PostgreSQL</text>
+    </g>
+  </g>
+
+  <!-- Line: LogWorkerListener → guard.logs.queue (ACK) -->
+  <path d="M 150 435 L 150 380 L 180 380" fill="none" stroke="var(--success)" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <text x="165" y="370" class="sub" text-anchor="middle" fill="var(--success)">ACK</text>
+
+  <!-- Line: step 3 → PostgreSQL -->
+  <path d="M 485 530 L 485 550 L 280 550 L 280 610" fill="none" stroke="var(--success)" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="190" y="690" class="label" text-anchor="middle">CRITICAL only</text>
+  <text x="285" y="590" class="label" text-anchor="start" fill="var(--success)">INSERT</text>
+  <text x="285" y="590" class="label" text-anchor="start" fill="var(--success)">INSERT</text>
+
+  <!-- NACK → DLX path -->
+  <path d="M 572 490 L 650 490 L 650 600 L 620 600" fill="none" stroke="var(--danger)" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arr-danger)"/>
+  <text x="600" y="520" class="sub" text-anchor="start" fill="var(--danger)">NACK</text>
+  <text x="577" y="536" class="sub" text-anchor="start" fill="var(--danger)">(no requeue)</text>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       ROW 4: Persistence + DLQ
+  ══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- PostgreSQL -->
+  <g>
+    <rect x="180" y="610" width="200" height="56" rx="8" fill="var(--blue-fill)" stroke="var(--blue-stroke)" stroke-width="0.5"/>
+    <text x="280" y="625" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--blue-title)">PostgreSQL</text>
+    <text x="280" y="645" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--blue-sub)">log_entries table · JSONB metadata</text>
+  </g>
+
+  <!-- guard.dlx -->
+  <g>
+    <rect x="400" y="572" width="220" height="55" rx="8" fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
+    <text x="510" y="585" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--red-title)">guard.dlx</text>
+    <text x="510" y="602" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Dead Letter Exchange</text>
+    <text x="510" y="617" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">routing key: log.dead</text>
+  </g>
+
+  <!-- Arrow DLX → DLQ -->
+  <line x1="510" y1="627" x2="510" y2="648" stroke="var(--danger)" stroke-width="1" marker-end="url(#arr-danger)"/>
+
+  <!-- guard.logs.dlq -->
+  <g>
+    <rect x="400" y="650" width="220" height="44" rx="8" fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
+    <text x="510" y="665" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--red-title)">guard.logs.dlq</text>
+    <text x="510" y="684" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Dead Letter Queue</text>
+  </g>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       ROW 5: Resilience
+  ══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- AlertService -->
+  <g>
+    <rect x="52" y="720" width="270" height="76" rx="8" fill="var(--coral-fill)" stroke="var(--coral-stroke)" stroke-width="0.5"/>
+    <text x="187" y="743" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--coral-title)">AlertService</text>
+    <text x="187" y="761" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--coral-sub)">@Async + @Retryable</text>
+    <text x="187" y="778" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--coral-sub)">Backoff: 1s → 2s → 4s (+jitter)</text>
+  </g>
+
+  <!-- Arrow AlertService → Webhook -->
+  <line x1="322" y1="758" x2="388" y2="758" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="355" y="750" class="label" text-anchor="middle">HTTPS</text>
+
+  <!-- Webhook -->
+  <g>
+    <rect x="390" y="720" width="160" height="76" rx="8" fill="var(--green-fill)" stroke="var(--green-stroke)" stroke-width="0.5"/>
+    <text x="470" y="743" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--green-title)">Webhook</text>
+    <text x="470" y="761" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--green-sub)">External endpoint</text>
+    <text x="470" y="778" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--green-sub)">CRITICAL alert payload</text>
+  </g>
+
+  <!-- Actuator -->
+  <g>
+    <rect x="568" y="720" width="68" height="76" rx="8" fill="var(--gray-fill)" stroke="var(--gray-stroke)" stroke-width="0.5"/>
+    <text x="602" y="750" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--gray-title)">Actuator</text>
+    <text x="602" y="768" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--gray-sub)">/health</text>
+    <text x="602" y="784" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--gray-sub)">/metrics</text>
+  </g>
+
+  <!-- Dashed line: step 2 → AlertService (CRITICAL only) -->
+  <path d="M 330 530 L 330 560 L 150 560 L 150 720" fill="none" stroke="var(--dashed)" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <text x="190" y="690" class="label" text-anchor="middle">CRITICAL only</text>
+
+  <!-- @Recover label -->
+  <text x="187" y="812" class="sub" text-anchor="middle" fill="var(--danger)">@Recover - logs failure after all retries</text>
+</svg>
