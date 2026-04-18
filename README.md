@@ -10,6 +10,7 @@ This project delivers a **production-grade, event-driven log processing pipeline
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![Actuator](https://img.shields.io/badge/Actuator-Prometheus-brightgreen?logo=prometheus)
 ![Spring Retry](https://img.shields.io/badge/Spring_Retry-Exponential_Backoff-green?logo=spring)
+![k6](https://img.shields.io/badge/k6-Load_Tested-7D64FF?logo=k6)
 
 ---
 
