@@ -47,6 +47,24 @@ Log-Guard treats the log pipeline as a first-class production concern:
 
 ---
 
+## Performance
+
+Load tested with [k6](https://k6.io) against a local single-node deployment (all three containers on one machine).
+
+| Metric | Result |
+|---|---|
+| Sustained throughput | 37 req/sec |
+| p(90) latency | 83ms |
+| p(95) latency | 113ms |
+| Concurrent users | 50 |
+| Messages processed | 11,213 |
+| Message loss | 0 |
+| DLQ failures | 0 |
+
+Every message published made it through the full pipeline end-to-end (REST -> RabbitMQ -> PII redaction -> PostgreSQL) with zero loss. The 1.9% error rate observed was isolated to the ramp-up stage; steady-state error rate was effectively 0.
+
+---
+
 ## Design Decisions
 
 **Why manual ACK instead of auto-ACK?**  
@@ -76,7 +94,7 @@ The alert is triggered using @Async before saveAndFlush so:
 - A slow or momentarily unavailable PostgreSQL doesn't delay alerts.
 - Alerting and persistence remain fully independent.
 
-**Why Luhn and Verhoeff validation on top of regex?**
+**Why Luhn and Verhoeff validation on top of regex?**  
 Credit card and Aadhaar patterns overlap significantly with other numeric identifiers - order IDs, invoice numbers, transaction references.  
 Pure regex would produce false positives and silently corrupt legitimate log data.  
 Luhn validation ensures only mathematically valid card numbers are redacted; Verhoeff does the same for Aadhaar. Any number that fails the checksum is left untouched.
@@ -286,21 +304,15 @@ Full health check including DB and RabbitMQ connection status.
 ## Local Development
 
 ```bash
-# Start only infrastructure (no app)
-docker-compose up postgres rabbitmq -d
-
-# Run the app locally against the containerised infra
-./mvnw spring-boot:run
-
-# Run tests
-./mvnw test
+# Start app
+docker-compose up --build
 ```
 
 The app auto-creates the `log_entries` table on first boot via `ddl-auto: update`. To reset the schema, stop the app and run:
 
 ```bash
 docker-compose down -v
-docker-compose up postgres rabbitmq -d
+docker-compose up --build
 ```
 
 ---

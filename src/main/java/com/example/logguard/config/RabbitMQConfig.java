@@ -153,6 +153,8 @@ public class RabbitMQConfig {
         factory.setMessageConverter(jsonMessageConverter());
         factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
         factory.setPrefetchCount(10);  // Consumer fetches max 10 unacknowledged messages at once
+        factory.setConcurrentConsumers(5);       // ADD - 5 threads always running
+        factory.setMaxConcurrentConsumers(20);   // ADD - burst up to 20 under load
         factory.setObservationEnabled(true);
         return factory;
     }

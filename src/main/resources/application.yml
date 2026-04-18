@@ -8,9 +8,9 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     hikari:
-      maximum-pool-size: 10            # Max 10 DB connections at once
+      maximum-pool-size: 20            # Max 20 DB connections at once
       minimum-idle: 2                  # Keep at least 2 ready
-      connection-timeout: 30000        # Wait max 30 sec for a free connection
+      connection-timeout: 10000        # Wait max 10 sec for a free connection
       idle-timeout: 600000             # Close idle connection after 10 min
   
   # Hibernate ORM setup
@@ -32,6 +32,8 @@ spring:
     # Consumer
     listener:
       simple:
+        concurrency: 5                    # 5 consumer threads instead of 1
+        max-concurrency: 20
         acknowledge-mode: manual          # Manual ACK - critical for DLQ
         retry:
           enabled: false                  # Retry handled by Spring Retry + DLQ
