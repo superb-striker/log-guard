@@ -10,6 +10,9 @@ This project delivers a **production-grade, event-driven log processing pipeline
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![Actuator](https://img.shields.io/badge/Actuator-Prometheus-brightgreen?logo=prometheus)
 ![Spring Retry](https://img.shields.io/badge/Spring_Retry-Exponential_Backoff-green?logo=spring)
+![AWS S3](https://img.shields.io/badge/AWS_S3-Storage-569A31?logo=amazons3&logoColor=white)
+![AWS Athena](https://img.shields.io/badge/AWS_Athena-Query_Engine-FF9900?logo=amazonaws&logoColor=white)
+![Apache Superset](https://img.shields.io/badge/Apache_Superset-Dashboarding-20A6C9?logo=apache&logoColor=white)
 ![k6](https://img.shields.io/badge/k6-Load_Tested-7D64FF?logo=k6)
 
 ---
