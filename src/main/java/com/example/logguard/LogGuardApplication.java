@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Log-guard - Production-grade event-driven log pipeline.
@@ -24,6 +25,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  *                               └──────────────────┘
  */
 @SpringBootApplication
+@EnableScheduling
 @EnableRetry
 @EnableAsync
 public class LogGuardApplication {
