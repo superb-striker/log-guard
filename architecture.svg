@@ -1,6 +1,6 @@
-<svg width="100%" viewBox="0 0 680 825" role="img" xmlns="http://www.w3.org/2000/svg">
+<svg width="100%" viewBox="0 0 680 1045" role="img" xmlns="http://www.w3.org/2000/svg">
   <title>Log-Guard Pipeline Architecture</title>
-  <desc>Event-driven log pipeline: REST ingestion, RabbitMQ, PII redaction worker, PostgreSQL persistence, and CRITICAL alerting with exponential backoff retry.</desc>
+  <desc>Event-driven log pipeline: REST ingestion, RabbitMQ, PII redaction worker, PostgreSQL persistence, S3 data lake with Athena and Superset, and CRITICAL alerting with exponential backoff retry.</desc>
 
   <style>
     :root {
@@ -56,6 +56,10 @@
       --label:        #888780;
       --divider:      rgba(0,0,0,0.12);
       --dashed:       rgba(0,0,0,0.2);
+
+      --section-bg:   #e8e8e6;
+      --section-fg:   #444441;
+      --section-border: #b4b2a9;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -111,11 +115,15 @@
         --label:        #888780;
         --divider:      rgba(255,255,255,0.1);
         --dashed:       rgb(255, 255, 255);
+
+        --section-bg:   #1e1e1c;
+        --section-fg:   #b4b2a9;
+        --section-border: #3a3a38;
       }
     }
 
     text        { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .section    { font-size:12px; font-weight:500; letter-spacing:0.08em; fill:var(--muted); opacity:0.7; }
+    .section    { font-size:12px; font-weight:500; letter-spacing:0.08em; fill:var(--dashed); opacity:0.7; }
     .title      { font-size:14px; font-weight:500; }
     .sub        { font-size:12px; font-weight:400; }
     .label      { font-size:12px; fill:var(--label); }
@@ -136,23 +144,43 @@
   <!-- Background -->
   <rect x="0" y="0" width="100%" height="100%" fill="var(--bg)"/>
 
-  <!-- ── Section labels ─────────────────────────────────────────────── -->
-  <text x="40" y="38"  class="section">INGESTION</text>
-  <text x="40" y="228" class="section">BROKER</text>
-  <text x="40" y="408" class="section">WORKER</text>
-  <text x="40" y="578" class="section">PERSISTENCE</text>
-  <text x="40" y="698" class="section">RESILIENCE</text>
+  <!-- Section label pills -->
+  <g>
+    <rect x="40" y="28" width="76" height="18" rx="4" fill="var(--section-bg)" stroke="var(--section-border)" stroke-width="0.5"/>
+    <text x="78" y="38" class="section" text-anchor="middle" dominant-baseline="central">INGESTION</text>
+  </g>
+  <g>
+    <rect x="40" y="218" width="56" height="18" rx="4" fill="var(--section-bg)" stroke="var(--section-border)" stroke-width="0.5"/>
+    <text x="68" y="228" class="section" text-anchor="middle" dominant-baseline="central">BROKER</text>
+  </g>
+  <g>
+    <rect x="40" y="398" width="56" height="18" rx="4" fill="var(--section-bg)" stroke="var(--section-border)" stroke-width="0.5"/>
+    <text x="68" y="408" class="section" text-anchor="middle" dominant-baseline="central">WORKER</text>
+  </g>
+  <g>
+    <rect x="40" y="568" width="82" height="18" rx="4" fill="var(--section-bg)" stroke="var(--section-border)" stroke-width="0.5"/>
+    <text x="81" y="578" class="section" text-anchor="middle" dominant-baseline="central">PERSISTENCE</text>
+  </g>
+  <g>
+    <rect x="40" y="708" width="68" height="18" rx="4" fill="var(--section-bg)" stroke="var(--section-border)" stroke-width="0.5"/>
+    <text x="74" y="718" class="section" text-anchor="middle" dominant-baseline="central">DATA LAKE</text>
+  </g>
+  <g>
+    <rect x="40" y="858" width="74" height="18" rx="4" fill="var(--section-bg)" stroke="var(--section-border)" stroke-width="0.5"/>
+    <text x="77" y="868" class="section" text-anchor="middle" dominant-baseline="central">RESILIENCE</text>
+  </g>
 
   <!-- ── Dividers ───────────────────────────────────────────────────── -->
   <line x1="40" y1="46"  x2="640" y2="46"  stroke="var(--divider)" stroke-width="0.5"/>
   <line x1="40" y1="236" x2="640" y2="236" stroke="var(--divider)" stroke-width="0.5"/>
   <line x1="40" y1="416" x2="640" y2="416" stroke="var(--divider)" stroke-width="0.5"/>
   <line x1="40" y1="588" x2="640" y2="588" stroke="var(--divider)" stroke-width="0.5"/>
-  <line x1="40" y1="708" x2="640" y2="708" stroke="var(--divider)" stroke-width="0.5"/>
+  <line x1="40" y1="728" x2="640" y2="728" stroke="var(--divider)" stroke-width="0.5"/>
+  <line x1="40" y1="878" x2="640" y2="878" stroke="var(--divider)" stroke-width="0.5"/>
 
-  <!-- ══════════════════════════════════════════════════════════════════
+  <!-- 
        ROW 1: Ingestion
-  ══════════════════════════════════════════════════════════════════════ -->
+   -->
 
   <!-- Client -->
   <g>
@@ -195,9 +223,9 @@
   <line x1="336" y1="216" x2="336" y2="252" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
   <text x="360" y="237" class="label" text-anchor="start">AMQP</text>
 
-  <!-- ══════════════════════════════════════════════════════════════════
+  <!-- 
        ROW 2: Broker
-  ══════════════════════════════════════════════════════════════════════ -->
+   -->
 
   <!-- guard.exchange -->
   <g>
@@ -212,16 +240,17 @@
   <!-- guard.logs.queue -->
   <g>
     <rect x="180" y="348" width="312" height="56" rx="8" fill="var(--amber-fill)" stroke="var(--amber-stroke)" stroke-width="0.5"/>
-    <text x="336" y="370" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--amber-title)">guard.logs.queue</text>
-    <text x="336" y="388" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--amber-sub)">x-dead-letter-exchange · x-message-ttl: 5min</text>
+    <text x="336" y="363" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--amber-title)">guard.logs.queue</text>
+    <text x="336" y="380" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--amber-sub)">x-dead-letter-exchange · x-message-ttl: 30min ·</text>
+    <text x="336" y="393" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--amber-sub)">x-max-length: 500k</text>
   </g>
 
   <!-- Arrow queue → worker -->
   <line x1="336" y1="404" x2="336" y2="432" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <!-- ══════════════════════════════════════════════════════════════════
+  <!-- 
        ROW 3: Worker
-  ══════════════════════════════════════════════════════════════════════ -->
+   -->
 
   <!-- Worker outer box -->
   <g>
@@ -232,8 +261,8 @@
     <g>
       <rect x="100" y="470" width="150" height="60" rx="6" fill="var(--teal-fill)" stroke="var(--teal-stroke)" stroke-width="0.5"/>
       <text x="176" y="480" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--teal-title)">1. PIIRedactionService</text>
-      <text x="180" y="500" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">Email · IP · Card</text>
-      <text x="178" y="515" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">Aadhaar · Phone · Token</text>
+      <text x="180" y="500" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">Email · Aadhaar · Card</text>
+      <text x="178" y="515" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">IP · Phone · JWT Token</text>
     </g>
 
     <!-- Arrow 1 → 2 -->
@@ -250,12 +279,12 @@
     <!-- Arrow 2 → 3 -->
     <line x1="400" y1="500" x2="420" y2="500" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
 
-    <!-- Step 3: Persist -->
+    <!-- Step 3: Persist + Buffer -->
     <g>
       <rect x="422" y="470" width="132" height="60" rx="6" fill="var(--teal-fill)" stroke="var(--teal-stroke)" stroke-width="0.5"/>
-      <text x="488" y="480" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--teal-title)">3. Persist</text>
+      <text x="488" y="480" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--teal-title)">3. Persist + Buffer</text>
       <text x="488" y="500" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">LogEntry → JPA</text>
-      <text x="488" y="515" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">PostgreSQL</text>
+      <text x="488" y="515" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--teal-sub)">PostgreSQL + S3 Buffer</text>
     </g>
   </g>
 
@@ -264,81 +293,128 @@
   <text x="165" y="370" class="sub" text-anchor="middle" fill="var(--success)">ACK</text>
 
   <!-- Line: step 3 → PostgreSQL -->
-  <path d="M 485 530 L 485 550 L 280 550 L 280 610" fill="none" stroke="var(--success)" stroke-width="1" marker-end="url(#arr)"/>
-  <text x="190" y="690" class="label" text-anchor="middle">CRITICAL only</text>
-  <text x="285" y="590" class="label" text-anchor="start" fill="var(--success)">INSERT</text>
-  <text x="285" y="590" class="label" text-anchor="start" fill="var(--success)">INSERT</text>
+  <path d="M 485 530 L 485 570 L 152 570 L 152 610" fill="none" stroke="var(--success)" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="60" y="555" class="label" text-anchor="middle" fill="var(--success)">INSERT</text>
+ 
+  <!-- Line: step 3 → S3ParquetExportService -->
+  <path d="M 485 530 L 485 570 L 325 570 L 325 610" fill="none" stroke="var(--arrow)" stroke-width="1" marker-end="url(#arr)"/>
+  <text x="370" y="580" class="label" text-anchor="middle">buffer()</text>
 
   <!-- NACK → DLX path -->
-  <path d="M 572 490 L 650 490 L 650 600 L 620 600" fill="none" stroke="var(--danger)" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arr-danger)"/>
+  <path d="M 572 490 L 650 490 L 650 620 L 620 620" fill="none" stroke="var(--danger)" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arr-danger)"/>
   <text x="600" y="520" class="sub" text-anchor="start" fill="var(--danger)">NACK</text>
   <text x="577" y="536" class="sub" text-anchor="start" fill="var(--danger)">(no requeue)</text>
 
-  <!-- ══════════════════════════════════════════════════════════════════
+  <!-- 
        ROW 4: Persistence + DLQ
-  ══════════════════════════════════════════════════════════════════════ -->
+   -->
 
   <!-- PostgreSQL -->
   <g>
-    <rect x="180" y="610" width="200" height="56" rx="8" fill="var(--blue-fill)" stroke="var(--blue-stroke)" stroke-width="0.5"/>
-    <text x="280" y="625" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--blue-title)">PostgreSQL</text>
-    <text x="280" y="645" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--blue-sub)">log_entries table · JSONB metadata</text>
+    <rect x="52" y="610" width="200" height="56" rx="8" fill="var(--blue-fill)" stroke="var(--blue-stroke)" stroke-width="0.5"/>
+    <text x="152" y="630" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--blue-title)">PostgreSQL</text>
+    <text x="152" y="648" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--blue-sub)">log_entries · JSONB metadata</text>
   </g>
+
+  <!-- S3ParquetExportService -->
+  <g>
+    <rect x="270" y="610" width="110" height="56" rx="8" fill="var(--purple-fill)" stroke="var(--purple-stroke)" stroke-width="0.5"/>
+    <text x="325" y="630" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--purple-title)">S3Parquet</text>
+    <text x="325" y="648" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--purple-sub)">ExportService</text>
+  </g>
+
 
   <!-- guard.dlx -->
   <g>
-    <rect x="400" y="572" width="220" height="55" rx="8" fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
-    <text x="510" y="585" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--red-title)">guard.dlx</text>
-    <text x="510" y="602" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Dead Letter Exchange</text>
-    <text x="510" y="617" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">routing key: log.dead</text>
+    <rect x="400" y="592" width="220" height="55" rx="8" fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
+    <text x="510" y="605" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--red-title)">guard.dlx</text>
+    <text x="510" y="622" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Dead Letter Exchange</text>
+    <text x="510" y="637" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">routing key: log.dead</text>
   </g>
 
   <!-- Arrow DLX → DLQ -->
-  <line x1="510" y1="627" x2="510" y2="648" stroke="var(--danger)" stroke-width="1" marker-end="url(#arr-danger)"/>
+  <line x1="510" y1="647" x2="510" y2="668" stroke="var(--danger)" stroke-width="1" marker-end="url(#arr-danger)"/>
 
   <!-- guard.logs.dlq -->
   <g>
-    <rect x="400" y="650" width="220" height="44" rx="8" fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
-    <text x="510" y="665" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--red-title)">guard.logs.dlq</text>
-    <text x="510" y="684" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Dead Letter Queue</text>
+    <rect x="400" y="670" width="220" height="44" rx="8" fill="var(--red-fill)" stroke="var(--red-stroke)" stroke-width="0.5"/>
+    <text x="510" y="685" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--red-title)">guard.logs.dlq</text>
+    <text x="510" y="704" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--red-sub)">Dead Letter Queue · inspect &amp; replay</text>
   </g>
 
-  <!-- ══════════════════════════════════════════════════════════════════
-       ROW 5: Resilience
-  ══════════════════════════════════════════════════════════════════════ -->
+  <!-- 
+       ROW 5: Data Lake
+   -->
+
+  <!-- Arrow: S3ParquetExportService → AWS S3 -->
+  <path d="M 325 666 L 325 710 L 152 710 L 152 750" fill="none" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="230" y="703" class="label" text-anchor="middle">GZIP Parquet</text>
+  <text x="230" y="723" class="label" text-anchor="middle">Batch flush</text>
+
+  <!-- AWS S3 -->
+  <g>
+    <rect x="52" y="750" width="190" height="60" rx="8" fill="var(--amber-fill)" stroke="var(--amber-stroke)" stroke-width="0.5"/>
+    <text x="152" y="770" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--amber-title)">AWS S3</text>
+    <text x="152" y="788" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--amber-sub)">GZIP Parquet · Hive partitioned</text>
+  </g>
+
+  <!-- Arrow S3 → Athena -->
+  <line x1="242" y1="780" x2="278" y2="780" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="260" y="773" class="label" text-anchor="middle">MSCK</text>
+
+  <!-- AWS Athena -->
+  <g>
+    <rect x="280" y="750" width="160" height="60" rx="8" fill="var(--amber-fill)" stroke="var(--amber-stroke)" stroke-width="0.5"/>
+    <text x="360" y="770" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--amber-title)">AWS Athena</text>
+    <text x="360" y="788" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--amber-sub)">partition repair · SQL queries</text>
+  </g>
+
+  <!-- Arrow Athena → Superset -->
+  <line x1="440" y1="780" x2="464" y2="780" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Apache Superset -->
+  <g>
+    <rect x="466" y="750" width="160" height="60" rx="8" fill="var(--green-fill)" stroke="var(--green-stroke)" stroke-width="0.5"/>
+    <text x="546" y="770" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--green-title)">Apache Superset</text>
+    <text x="546" y="788" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--green-sub)">Metrics Dashboard</text>
+  </g>
+
+  <!-- 
+       ROW 6: Resilience
+   -->
 
   <!-- AlertService -->
   <g>
-    <rect x="52" y="720" width="270" height="76" rx="8" fill="var(--coral-fill)" stroke="var(--coral-stroke)" stroke-width="0.5"/>
-    <text x="187" y="743" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--coral-title)">AlertService</text>
-    <text x="187" y="761" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--coral-sub)">@Async + @Retryable</text>
-    <text x="187" y="778" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--coral-sub)">Backoff: 1s → 2s → 4s (+jitter)</text>
+    <rect x="52" y="890" width="270" height="76" rx="8" fill="var(--coral-fill)" stroke="var(--coral-stroke)" stroke-width="0.5"/>
+    <text x="187" y="913" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--coral-title)">AlertService</text>
+    <text x="187" y="931" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--coral-sub)">@Async + @Retryable</text>
+    <text x="187" y="948" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--coral-sub)">Backoff: 1s → 2s → 4s (+jitter)</text>
   </g>
 
   <!-- Arrow AlertService → Webhook -->
-  <line x1="322" y1="758" x2="388" y2="758" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
-  <text x="355" y="750" class="label" text-anchor="middle">HTTPS</text>
+  <line x1="322" y1="928" x2="388" y2="928" stroke="var(--arrow)" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="355" y="920" class="label" text-anchor="middle">HTTPS</text>
 
   <!-- Webhook -->
   <g>
-    <rect x="390" y="720" width="160" height="76" rx="8" fill="var(--green-fill)" stroke="var(--green-stroke)" stroke-width="0.5"/>
-    <text x="470" y="743" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--green-title)">Webhook</text>
-    <text x="470" y="761" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--green-sub)">External endpoint</text>
-    <text x="470" y="778" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--green-sub)">CRITICAL alert payload</text>
+    <rect x="390" y="890" width="160" height="76" rx="8" fill="var(--green-fill)" stroke="var(--green-stroke)" stroke-width="0.5"/>
+    <text x="470" y="913" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--green-title)">Webhook</text>
+    <text x="470" y="931" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--green-sub)">External endpoint</text>
+    <text x="470" y="948" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--green-sub)">CRITICAL alert payload</text>
   </g>
 
   <!-- Actuator -->
   <g>
-    <rect x="568" y="720" width="68" height="76" rx="8" fill="var(--gray-fill)" stroke="var(--gray-stroke)" stroke-width="0.5"/>
-    <text x="602" y="750" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--gray-title)">Actuator</text>
-    <text x="602" y="768" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--gray-sub)">/health</text>
-    <text x="602" y="784" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--gray-sub)">/metrics</text>
+    <rect x="568" y="890" width="68" height="76" rx="8" fill="var(--gray-fill)" stroke="var(--gray-stroke)" stroke-width="0.5"/>
+    <text x="602" y="918" class="title" text-anchor="middle" dominant-baseline="central" fill="var(--gray-title)">Actuator</text>
+    <text x="602" y="936" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--gray-sub)">/health</text>
+    <text x="602" y="952" class="sub"   text-anchor="middle" dominant-baseline="central" fill="var(--gray-sub)">/metrics</text>
   </g>
 
   <!-- Dashed line: step 2 → AlertService (CRITICAL only) -->
-  <path d="M 330 530 L 330 560 L 150 560 L 150 720" fill="none" stroke="var(--dashed)" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arr)"/>
-  <text x="190" y="690" class="label" text-anchor="middle">CRITICAL only</text>
+  <path d="M 330 530 L 330 560 L 30 560 L 30 928 L 52 928" fill="none" stroke="var(--dashed)" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <text x="70" y="840" class="label" text-anchor="middle">CRITICAL only</text>
 
   <!-- @Recover label -->
-  <text x="187" y="812" class="sub" text-anchor="middle" fill="var(--danger)">@Recover - logs failure after all retries</text>
+  <text x="187" y="982" class="sub" text-anchor="middle" fill="var(--danger)">@Recover - logs failure after all retries</text>
 </svg>

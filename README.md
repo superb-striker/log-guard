@@ -36,9 +36,13 @@ Log-Guard treats the log pipeline as a first-class production concern:
 - **Event-driven processing** via RabbitMQ - ingestion is decoupled from processing; the REST endpoint returns `202 Accepted` immediately 🔄  
 - **Dead Letter Queue** - failed messages route automatically to it for future inspection
 - **CRITICAL alerting** via `WebClient` - fires `@Async` before the DB write so a slow Postgres cannot delay a human notification 🚨  
-- **Exponential backoff retry** on the alert path - `@Retryable` with 1s -> 2s -> 4s delays and ±jitter; `@Recover` logs exhaustion for fallback handling 🔁  
+- **Exponential backoff retry** on the alert path - `@Retryable` with 1s -> 2s -> 4s delays and ±jitter; `@Recover` logs exhaustion for fallback handling 🔁
+- **Dual-write data lake** - redacted logs exported to `AWS S3` as GZIP Parquet
+  with Hive partitioning (year/month/day/service); `Athena` partition registration
+  automated via MSCK REPAIR TABLE; `Apache Superset dashboards` for analytics 🗄️
 - **Spring Boot Actuator** - `/health`, `/metrics`, `/prometheus`, `/loggers` exposed out of the box 📊  
 - **Fully containerised** - Docker Compose brings up the app, RabbitMQ (with management UI), and PostgreSQL in a single command 🐳
+
 
 ---
 
@@ -54,15 +58,46 @@ Load tested with [k6](https://k6.io) against a local single-node deployment (all
 
 | Metric | Result |
 |---|---|
-| Sustained throughput | 37 req/sec |
-| p(90) latency | 83ms |
-| p(95) latency | 113ms |
+| Sustained throughput | 510 req/sec |
+| p(90) latency | 99ms |
+| p(95) latency | 138ms |
+| p(99) latency | 246ms |
 | Concurrent users | 50 |
-| Messages processed | 11,213 |
+| Messages processed | 137,966 |
 | Message loss | 0 |
 | DLQ failures | 0 |
+| HTTP failures | 0 |
 
-Every message published made it through the full pipeline end-to-end (REST -> RabbitMQ -> PII redaction -> PostgreSQL) with zero loss. The 1.9% error rate observed was isolated to the ramp-up stage; steady-state error rate was effectively 0.
+Every message published made it through the full pipeline end-to-end (REST -> RabbitMQ -> PII redaction -> PostgreSQL) with zero loss.
+
+---
+
+## Dashboards
+
+Redacted logs are exported to AWS S3 as compressed Parquet files and queried through AWS Athena.  
+Apache Superset provides real-time observability into pipeline throughput, PII exposure, and system health.
+
+### Key Metrics
+
+| Metric | Description |
+|----------|-------------|
+| Total Logs Ingested | Total number of logs processed by the pipeline |
+| Total PII Redactions | Count of sensitive fields successfully detected and masked |
+| Critical Alerts Fired | Number of CRITICAL severity events generated |
+
+### Visualisations
+
+| Dashboard | Description |
+|------------|-------------|
+| Log Volume Over Time | Real-time log throughput grouped by severity level (INFO, WARN, ERROR, DEBUG, CRITICAL) |
+| PII Exposure by Service | Services generating the highest volume of sensitive data requiring redaction |
+| Error Rate by Service | ERROR log counts aggregated by microservice |
+| PII Detection Rate | Percentage of logs containing redacted sensitive information versus clean logs |
+| Critical vs Normal Log Ratio | Distribution of CRITICAL events relative to overall traffic |
+
+The dashboard enables rapid identification of noisy services, abnormal error spikes, and potential PII leakage hotspots while providing end-to-end visibility into the redaction pipeline.
+
+![Superset Dashboard](dashboard.jpg)
 
 ---
 
@@ -103,8 +138,8 @@ Luhn validation ensures only mathematically valid card numbers are redacted; Ver
 **Why `x-message-ttl` and `x-max-length` on the queue?**  
 These provide data freshness + back-pressure control:
 
-- TTL (5 min): Prevents stale logs from being processed too late
-- Max length (100k): Caps queue growth if consumers fall behind. Prevents unbounded memory usage in RabbitMQ
+- TTL (30 min): Prevents stale logs from being processed too late
+- Max length (500k): Caps queue growth if consumers fall behind. Prevents unbounded memory usage in RabbitMQ
 
 ---
 
@@ -230,6 +265,14 @@ The worker will fail to deserialise it, catch the exception, call `basicNack(req
 ```bash
 curl http://localhost:8080/api/logs/stats | jq
 ```
+
+### 7. Run the load test
+
+```bash
+k6 run loadTest.js
+```
+
+Watch Spring logs for batch flushes, S3 uploads, and Athena partition repairs firing in real time.
 
 ---
 
