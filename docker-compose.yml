@@ -39,6 +39,19 @@ services:
     networks:
       - logguard-net
 
+  superset:
+      build: ./superset
+      container_name: log-guard-superset
+      environment:
+        SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      ports:
+        - "8088:8088"
+      volumes:
+        - superset_data:/app/superset_home
+      networks:
+        - logguard-net
+      restart: unless-stopped
+
   log-guard:
     build: .     # Build Docker image from current project folder. Uses Dockerfile in root
     container_name: log-guard-app
@@ -49,8 +62,10 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: admin
       SPRING_RABBITMQ_PASSWORD: admin
-      WEBHOOK_URL: https://webhook.site/19e51876-7005-477e-89eb-a29b28f10a54
+      WEBHOOK_URL: https://webhook.site/232c8a72-a263-41cd-8692-fa2f0e277217
       SPRING_PROFILES_ACTIVE: docker
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
     ports:
       - "8080:8080"
     depends_on:
@@ -65,6 +80,7 @@ services:
 volumes:
   postgres_data:
   rabbitmq_data:
+  superset_data:
 
 networks:
   logguard-net:
