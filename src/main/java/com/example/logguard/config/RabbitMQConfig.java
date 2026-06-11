@@ -89,8 +89,8 @@ public class RabbitMQConfig {
             .durable(queue)
             .withArgument("x-dead-letter-exchange",     dlx)
             .withArgument("x-dead-letter-routing-key",  dlqRoutingKey)
-            .withArgument("x-message-ttl",              300_000)   // 5 min TTL
-            .withArgument("x-max-length",               100_000)   // back-pressure cap : max 100k messages
+            .withArgument("x-message-ttl",              18_000_000)   // 30 min TTL
+            .withArgument("x-max-length",               500_000)   // back-pressure cap : max 500k messages
             .build();
     }
 
@@ -152,7 +152,7 @@ public class RabbitMQConfig {
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(jsonMessageConverter());
         factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
-        factory.setPrefetchCount(10);  // Consumer fetches max 10 unacknowledged messages at once
+        factory.setPrefetchCount(10);            // Consumer fetches max 10 unacknowledged messages at once
         factory.setConcurrentConsumers(5);       // ADD - 5 threads always running
         factory.setMaxConcurrentConsumers(20);   // ADD - burst up to 20 under load
         factory.setObservationEnabled(true);
