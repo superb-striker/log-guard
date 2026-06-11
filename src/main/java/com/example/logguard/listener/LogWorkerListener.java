@@ -5,6 +5,7 @@ import com.example.logguard.entity.LogEntry;
 import com.example.logguard.repository.LogEntryRepository;
 import com.example.logguard.service.AlertService;
 import com.example.logguard.service.PersonallyIdentifiableInfoRedactionService;
+import com.example.logguard.service.S3ParquetExportService;
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +13,6 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -24,8 +24,9 @@ import java.time.Instant;
  *  1. Receive DTO from RabbitMQ (manual ACK mode)
  *  2. PII Redaction via regex patterns + checksum validation
  *  3. Persist redacted entry to PostgreSQL
- *  4. If level == CRITICAL -> fire async webhook alert
- *  5. ACK the message (success path)
+ *  4. Buffer to S3 data lake (Parquet, async)
+ *  5. If level == CRITICAL -> fire async webhook alert
+ *  6. ACK the message (success path)
  *     OR NACK without requeue (failure path -> DLX -> DLQ)
  *
  * Manual ACK is critical: it ensures that if the JVM crashes mid-processing,
@@ -40,14 +41,17 @@ public class LogWorkerListener {
     private final PersonallyIdentifiableInfoRedactionService  redactionService;
     private final LogEntryRepository   repository;
     private final AlertService         alertService;
+    private final S3ParquetExportService s3ExportService;
 
     public LogWorkerListener(
             PersonallyIdentifiableInfoRedactionService  redactionService,
             LogEntryRepository   repository,
-            AlertService         alertService) {
+            AlertService         alertService,
+            S3ParquetExportService s3ExportService) {
         this.redactionService = redactionService;
         this.repository       = repository;
         this.alertService     = alertService;
+        this.s3ExportService = s3ExportService;
     }
 
     /**
@@ -98,6 +102,7 @@ public class LogWorkerListener {
             }
 
             repository.saveAndFlush(entity);   // This stores final clean log in database. Spring JPA converts: Java object -> SQL INSERT
+            s3ExportService.buffer(entity);    // // Dual-write to S3 data lake (async buffer, non-blocking)
 
             log.info("Processed log id=[{}] service=[{}] level=[{}] critical=[{}]",
                 entity.getId(), entity.getService(), entity.getLevel(), isCritical);
