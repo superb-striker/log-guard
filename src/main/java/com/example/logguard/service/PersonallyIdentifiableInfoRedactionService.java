@@ -65,8 +65,6 @@ public class PersonallyIdentifiableInfoRedactionService {
         Pattern.CASE_INSENSITIVE
     );
 
-
-
     /**
      * IPV4 - strict octet validation.
      *
