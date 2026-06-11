@@ -67,6 +67,13 @@ guard:
   # PII Redaction patterns - App will hide sensitive data before storing/sending logs.
   redaction:
     enabled: true
+  # S3 configuration
+  s3:
+    enabled: true
+    bucket: log-guard-data-bucket
+    region: ap-south-1
+    batch-size: 100          # flush to S3 every N messages
+    flush-interval-ms: 60000 # or every 60 seconds, whichever comes first
 
 # Actuator
 management:
