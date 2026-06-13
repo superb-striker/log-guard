@@ -127,6 +127,20 @@ class LogGuardIntegrationTests {
         RestAssured.reset();
     }
 
+    @Test
+    void validLogReturns202Accepted() {
+        given()
+            .contentType(ContentType.JSON)
+            .body(validLog("acceptance-service", "INFO", "Application started"))
+        .when()
+            .post()
+        .then()
+            .statusCode(202)
+            .body("status", equalTo("accepted"))
+            .body("service", equalTo("acceptance-service"))
+            .body("level", equalTo("INFO"));
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
