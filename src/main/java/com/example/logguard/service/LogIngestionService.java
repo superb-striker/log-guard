@@ -27,7 +27,10 @@ public class LogIngestionService {
     private String exchange;
 
     @Value("${guard.rabbitmq.routing-key}")
-    private String routingKey;
+    private String routingKeyPrefix;
+
+    @Value("${guard.rabbitmq.shard-count:4}")
+    private int shardCount;
 
     public LogIngestionService(RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
@@ -45,6 +48,8 @@ public class LogIngestionService {
         log.info("Ingesting log: service=[{}] level=[{}] traceId=[{}]",
             dto.getService(), dto.getLevel(), dto.getTraceId());
 
+        int shard = Math.floorMod(dto.getService().hashCode(), shardCount);
+        String routingKey = routingKeyPrefix + ".shard-" + shard;
         rabbitTemplate.convertAndSend(exchange, routingKey, dto);
 
         log.debug("Published to exchange=[{}] routingKey=[{}]", exchange, routingKey);

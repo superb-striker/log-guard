@@ -54,8 +54,10 @@ guard:
   rabbitmq:
     # Main exchange / queue
     exchange: guard.exchange
-    queue: guard.logs.queue
+    queue-prefix: guard.logs.queue
+    queue: guard.logs.queue.shard-${SHARD_ID:0}
     routing-key: log.ingest
+    shard-count: 4
     # Dead Letter Exchange / Queue
     dlx: guard.dlx
     dlq: guard.logs.dlq

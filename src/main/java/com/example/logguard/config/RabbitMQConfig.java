@@ -10,28 +10,38 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * RabbitMQ topology for Log-Guard.
  *
- * Exchange topology:
+ * Exchange topology (now sharded - see mainExchange() / shardQueuesAndBindings()):
  *
  *  [Producer]
  *      │
- *      ▼  routing-key: log.ingest
+ *      ▼  routing-key: log.ingest.shard-{0..N-1}   (computed by LogIngestionService)
  *  [guard.exchange]  (direct)
  *      │
- *      ▼
- *  [guard.logs.queue]
- *      │  x-dead-letter-exchange: guard.dlx
- *      │  x-dead-letter-routing-key: log.dead
- *      │
+ *      ├──> [guard.logs.queue.shard-0]
+ *      ├──> [guard.logs.queue.shard-1]
+ *      ├──> [guard.logs.queue.shard-2]
+ *      └──> [guard.logs.queue.shard-3]
+ *              │  x-dead-letter-exchange: guard.dlx  (shared DLX/DLQ across all shards)
+ *              │  x-dead-letter-routing-key: log.dead
+ *              │
  *  On failure / NACK / TTL expiry:
  *      │
  *      ▼  routing-key: log.dead
  *  [guard.dlx]  (direct)
  *      │
  *      ▼
- *  [guard.logs.dlq]   <- inspect failed messages here (dead-letter queue)
+ *  [guard.logs.dlq]   <- inspect failed messages here (dead-letter queue, shared across shards)
+ *
+ * NOTE: guard.rabbitmq.queue-prefix is the base name used here to declare ALL
+ * shard queues. guard.rabbitmq.queue (used by LogWorkerListener) is a
+ * different, per-instance property that resolves to exactly one of the
+ * queues declared below via the SHARD_ID env var - see application.yml.
  */
 @Configuration
 public class RabbitMQConfig {
@@ -40,19 +50,22 @@ public class RabbitMQConfig {
 
     @Value("${guard.rabbitmq.exchange}")
     private String exchange;
-
-    @Value("${guard.rabbitmq.queue}")
-    private String queue;
-
+ 
+    @Value("${guard.rabbitmq.queue-prefix}")
+    private String queuePrefix;
+ 
     @Value("${guard.rabbitmq.routing-key}")
-    private String routingKey;
-
+    private String routingKeyPrefix;
+ 
+    @Value("${guard.rabbitmq.shard-count:4}")
+    private int shardCount;
+ 
     @Value("${guard.rabbitmq.dlx}")
     private String dlx;
-
+ 
     @Value("${guard.rabbitmq.dlq}")
     private String dlq;
-
+ 
     @Value("${guard.rabbitmq.dlq-routing-key}")
     private String dlqRoutingKey;
 
@@ -77,21 +90,45 @@ public class RabbitMQConfig {
             .build();
     }
 
-    // Queues
-
+    // Shard queues + bindings
     /**
-     * Main processing queue with DLX headers.
-     * Messages NACK'd (without requeue) are forwarded to guard.dlx.
+     * Declares one durable queue per shard (guard.logs.queue.shard-0 ...
+     * shard-{N-1}), each bound to mainExchange() with its own routing key
+     * (log.ingest.shard-0, etc.), each with the same DLX args the original
+     * single mainQueue() had. All shards share one DLX/DLQ - simpler to
+     * inspect failed messages in one place, and failure handling doesn't
+     * depend on which shard produced the failure.
+     *
+     * Declarables lets us register a variable number of beans (driven by
+     * shard-count) from a single @Bean method - Spring AMQP declares every
+     * Declarable in the returned collection against the broker on startup.
      */
     @Bean
-    public Queue mainQueue() {
-        return QueueBuilder
-            .durable(queue)
-            .withArgument("x-dead-letter-exchange",     dlx)
-            .withArgument("x-dead-letter-routing-key",  dlqRoutingKey)
-            .withArgument("x-message-ttl",              18_000_000)   // 30 min TTL
-            .withArgument("x-max-length",               500_000)   // back-pressure cap : max 500k messages
-            .build();
+    public Declarables shardQueuesAndBindings(DirectExchange mainExchange) {
+        List<Declarable> declarables = new ArrayList<>();
+ 
+        for (int shardIndex = 0; shardIndex < shardCount; shardIndex++) {
+            String shardQueueName = queuePrefix + ".shard-" + shardIndex;
+            String shardRoutingKey = routingKeyPrefix + ".shard-" + shardIndex;
+ 
+            Queue shardQueue = QueueBuilder
+                .durable(shardQueueName)
+                .withArgument("x-dead-letter-exchange",    dlx)
+                .withArgument("x-dead-letter-routing-key", dlqRoutingKey)
+                .withArgument("x-message-ttl",              18_000_000)   // 30 min TTL - unchanged from original
+                .withArgument("x-max-length",               500_000)     // unchanged from original
+                .build();
+ 
+            Binding shardBinding = BindingBuilder
+                .bind(shardQueue)
+                .to(mainExchange)
+                .with(shardRoutingKey);
+ 
+            declarables.add(shardQueue);
+            declarables.add(shardBinding);
+        }
+ 
+        return new Declarables(declarables);
     }
 
     // Dead Letter Queue - durable, no DLX of its own to avoid loops.
@@ -101,16 +138,6 @@ public class RabbitMQConfig {
         return QueueBuilder
             .durable(dlq)
             .build();
-    }
-
-    // Bindings
-
-    @Bean
-    public Binding mainBinding(Queue mainQueue, DirectExchange mainExchange) {
-        return BindingBuilder
-            .bind(mainQueue)
-            .to(mainExchange)
-            .with(routingKey);
     }
 
     @Bean
