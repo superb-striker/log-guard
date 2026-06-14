@@ -141,6 +141,20 @@ class LogGuardIntegrationTests {
             .body("level", equalTo("INFO"));
     }
 
+    @Test
+    void invalidSeverityReturns400BadRequest() {
+        given()
+            .contentType(ContentType.JSON)
+            .body(validLog("validation-service", "FATAL", "Unsupported severity"))
+        .when()
+            .post()
+        .then()
+            .statusCode(400)
+            .body("title", equalTo("Validation Failed"))
+            .body("fieldErrors.level", equalTo(
+                "Log level must be one of: DEBUG, INFO, WARN, ERROR, CRITICAL."));
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
