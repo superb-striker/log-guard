@@ -155,6 +155,23 @@ class LogGuardIntegrationTests {
                 "Log level must be one of: DEBUG, INFO, WARN, ERROR, CRITICAL."));
     }
 
+    @Test
+    void missingRequiredFieldsReturnStructuredValidationErrors() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("{}")
+        .when()
+            .post()
+        .then()
+            .statusCode(400)
+            .body("title", equalTo("Validation Failed"))
+            .body("detail", equalTo("One or more fields failed validation"))
+            .body("fieldErrors", hasKey("service"))
+            .body("fieldErrors", hasKey("level"))
+            .body("fieldErrors", hasKey("message"))
+            .body("timestamp", org.hamcrest.Matchers.notNullValue());
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
