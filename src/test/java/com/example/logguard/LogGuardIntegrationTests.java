@@ -221,6 +221,23 @@ class LogGuardIntegrationTests {
             .body("critical", equalTo(0));
     }
 
+    @Test
+    void publishedMessagesAreEventuallyPersisted() {
+        given()
+            .contentType(ContentType.JSON)
+            .body(validLog("persistence-service", "INFO", "Ready for persistence"))
+        .when()
+            .post()
+        .then()
+            .statusCode(202);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            List<LogEntry> logs = repository.findByServiceOrderByTimestampDesc("persistence-service");
+            assertThat(logs).hasSize(1);
+            assertThat(logs.getFirst().getMessage()).isEqualTo("Ready for persistence");
+        });
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
