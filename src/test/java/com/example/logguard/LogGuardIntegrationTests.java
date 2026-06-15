@@ -172,6 +172,27 @@ class LogGuardIntegrationTests {
             .body("timestamp", org.hamcrest.Matchers.notNullValue());
     }
 
+    @Test
+    void batchIngestionAcceptsAndPersistsValidEntries() {
+        given()
+            .contentType(ContentType.JSON)
+            .body("""
+                [
+                  {"service":"batch-service","level":"INFO","message":"first"},
+                  {"service":"batch-service","level":"WARN","message":"second"}
+                ]
+                """)
+        .when()
+            .post("/batch")
+        .then()
+            .statusCode(202)
+            .body("status", equalTo("accepted"))
+            .body("queued", equalTo(2));
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+            assertThat(repository.findByServiceOrderByTimestampDesc("batch-service")).hasSize(2));
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
