@@ -193,6 +193,34 @@ class LogGuardIntegrationTests {
             assertThat(repository.findByServiceOrderByTimestampDesc("batch-service")).hasSize(2));
     }
 
+    @Test
+    void filteringAndStatisticsEndpointsReturnCorrectData() {
+        repository.saveAllAndFlush(List.of(
+            persistedLog("query-service", "INFO", "one", Instant.parse("2026-01-01T00:00:00Z")),
+            persistedLog("query-service", "ERROR", "two", Instant.parse("2026-01-02T00:00:00Z")),
+            persistedLog("other-service", "ERROR", "three", Instant.parse("2026-01-03T00:00:00Z"))
+        ));
+
+        given()
+        .when()
+            .get("/level/error")
+        .then()
+            .statusCode(200)
+            .body("level", org.hamcrest.Matchers.everyItem(equalTo("ERROR")))
+            .body("", hasSize(2));
+
+        given()
+        .when()
+            .get("/stats")
+        .then()
+            .statusCode(200)
+            .body("total", equalTo(3))
+            .body("info", equalTo(1))
+            .body("error", equalTo(2))
+            .body("warn", equalTo(0))
+            .body("critical", equalTo(0));
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
