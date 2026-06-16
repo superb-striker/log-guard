@@ -260,6 +260,19 @@ class LogGuardIntegrationTests {
         });
     }
 
+    @Test
+    void invalidRabbitMqMessagesEnterTheDlq() {
+        Message invalidMessage = MessageBuilder
+            .withBody("{}".getBytes(StandardCharsets.UTF_8))
+            .setContentType(MessageProperties.CONTENT_TYPE_JSON)
+            .build();
+
+        rabbitTemplate.send(EXCHANGE, ROUTING_KEY, invalidMessage);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+            assertThat(rabbitTemplate.receive(DLQ)).isNotNull());
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
