@@ -238,6 +238,28 @@ class LogGuardIntegrationTests {
         });
     }
 
+    @Test
+    void piiIsRedactedBeforePostgresqlPersistence() {
+        given()
+            .contentType(ContentType.JSON)
+            .body(validLog(
+                "pii-service",
+                "INFO",
+                "Login for jane.doe@example.com from 192.168.10.25"))
+        .when()
+            .post()
+        .then()
+            .statusCode(202);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            List<LogEntry> logs = repository.findByServiceOrderByTimestampDesc("pii-service");
+            assertThat(logs).hasSize(1);
+            assertThat(logs.getFirst().getMessage())
+                .isEqualTo("Login for [EMAIL REDACTED] from [IP REDACTED]")
+                .doesNotContain("jane.doe@example.com", "192.168.10.25");
+        });
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
