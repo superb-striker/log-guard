@@ -291,6 +291,27 @@ class LogGuardIntegrationTests {
         });
     }
 
+    @Test
+    void unavailableWebhookRetriesThreeTimesAndRecoversWithoutLosingTheLog() {
+        WEBHOOK_STATUS.set(503);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(validLog("retry-webhook-service", "CRITICAL", "Dependency unavailable"))
+        .when()
+            .post()
+        .then()
+            .statusCode(202);
+
+        await().atMost(Duration.ofSeconds(12)).until(() -> WEBHOOK_REQUESTS.get() >= 3);
+        await().during(Duration.ofMillis(750)).atMost(Duration.ofSeconds(3))
+            .until(() -> WEBHOOK_REQUESTS.get() == 3);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+            assertThat(repository.findByServiceOrderByTimestampDesc("retry-webhook-service"))
+                .hasSize(1));
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {

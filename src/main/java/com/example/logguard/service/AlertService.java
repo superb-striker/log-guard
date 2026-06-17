@@ -114,8 +114,6 @@ public class AlertService {
             .getOrDefault(dto.getService(), new AtomicInteger(0))
             .getAndSet(0);
 
-        lastAlertTime.put(dto.getService(), Instant.now());
-
         log.warn("CRITICAL alert firing for service=[{}] - {} occurrence(s) were suppressed in previous window",
             dto.getService(), previouslySuppressed);
 
@@ -127,6 +125,11 @@ public class AlertService {
             .doOnSuccess(resp -> log.info("Webhook alert delivered for service=[{}]", dto.getService()))
             .doOnError(err  -> log.error("Webhook alert delivery failed: {}", err.getMessage()))
             .block(); // block is acceptable inside @Async thread
+
+        // Start the cooldown only after delivery succeeds. Recording it before
+        // the HTTP call would make the retry invocation look like a duplicate
+        // and silently skip the second and third delivery attempts.
+        lastAlertTime.put(dto.getService(), Instant.now());
     }
 
     /**
