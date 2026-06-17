@@ -273,6 +273,24 @@ class LogGuardIntegrationTests {
             assertThat(rabbitTemplate.receive(DLQ)).isNotNull());
     }
 
+    @Test
+    void criticalLogsInvokeTheWebhook() {
+        given()
+            .contentType(ContentType.JSON)
+            .body(validLog("critical-webhook-service", "CRITICAL", "Database unavailable"))
+        .when()
+            .post()
+        .then()
+            .statusCode(202);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(WEBHOOK_REQUESTS).hasValue(1);
+            assertThat(LAST_WEBHOOK_BODY.get())
+                .contains("\"alert_type\":\"CRITICAL_LOG\"")
+                .contains("\"service\":\"critical-webhook-service\"");
+        });
+    }
+
     private static String validLog(String service, String level, String message) {
         return """
             {
