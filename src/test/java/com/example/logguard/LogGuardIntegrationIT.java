@@ -42,7 +42,7 @@ import static org.hamcrest.Matchers.hasSize;
 
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class LogGuardIntegrationTests {
+class LogGuardIntegrationIT {
 
     private static final String EXCHANGE = "guard.test.exchange";
     private static final String QUEUE = "guard.test.queue.shard-0";
@@ -335,7 +335,7 @@ class LogGuardIntegrationTests {
     private static HttpServer startWebhookServer() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-            server.createContext("/alerts", LogGuardIntegrationTests::handleWebhook);
+            server.createContext("/alerts", LogGuardIntegrationIT::handleWebhook);
             server.start();
             return server;
         } catch (IOException ex) {
