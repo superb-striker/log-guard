@@ -1,3 +1,24 @@
+x-log-guard-common: &log-guard-common
+  build: .
+  environment: &log-guard-environment
+    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/log-guard
+    SPRING_DATASOURCE_USERNAME: guard
+    SPRING_DATASOURCE_PASSWORD: guard_secret
+    SPRING_RABBITMQ_HOST: rabbitmq
+    SPRING_RABBITMQ_USERNAME: admin
+    SPRING_RABBITMQ_PASSWORD: admin
+    WEBHOOK_URL: ${WEBHOOK_URL:-}
+    SPRING_PROFILES_ACTIVE: docker
+    AWS_ACCESS_KEY: ${AWS_ACCESS_KEY:-}
+    AWS_SECRET_KEY: ${AWS_SECRET_KEY:-}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+  restart: unless-stopped
+  networks:
+    - logguard-net
 
 services:
   postgres:
@@ -23,13 +44,13 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin
-      RABBITMQ_LOAD_DEFINITIONS: /etc/rabbitmq/definitions.json 
+      RABBITMQ_LOAD_DEFINITIONS: /etc/rabbitmq/definitions.json
     ports:
       - "5672:5672"
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-      - ./rabbitmq-definitions.json:/etc/rabbitmq/definitions.json   
+      - ./src/main/resources/rabbitmq-definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -52,30 +73,35 @@ services:
         - logguard-net
       restart: unless-stopped
 
-  log-guard:
-    build: .     # Build Docker image from current project folder. Uses Dockerfile in root
-    container_name: log-guard-app
+  log-guard-shard-0:
+    <<: *log-guard-common
+    container_name: log-guard-app-shard-0
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/log-guard
-      SPRING_DATASOURCE_USERNAME: guard
-      SPRING_DATASOURCE_PASSWORD: guard_secret
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_USERNAME: admin
-      SPRING_RABBITMQ_PASSWORD: admin
-      WEBHOOK_URL: https://webhook.site/232c8a72-a263-41cd-8692-fa2f0e277217
-      SPRING_PROFILES_ACTIVE: docker
-      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
-      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      <<: *log-guard-environment
+      SHARD_ID: 0
     ports:
       - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - logguard-net
+
+  log-guard-shard-1:
+    <<: *log-guard-common
+    container_name: log-guard-app-shard-1
+    environment:
+      <<: *log-guard-environment
+      SHARD_ID: 1
+
+  log-guard-shard-2:
+    <<: *log-guard-common
+    container_name: log-guard-app-shard-2
+    environment:
+      <<: *log-guard-environment
+      SHARD_ID: 2
+
+  log-guard-shard-3:
+    <<: *log-guard-common
+    container_name: log-guard-app-shard-3
+    environment:
+      <<: *log-guard-environment
+      SHARD_ID: 3
 
 volumes:
   postgres_data:

@@ -38,15 +38,51 @@
   ],
   "queues": [
     {
-      "name": "guard.logs.queue",
+      "name": "guard.logs.queue.shard-0",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
       "arguments": {
         "x-dead-letter-exchange": "guard.dlx",
         "x-dead-letter-routing-key": "log.dead",
-        "x-message-ttl": 300000,
-        "x-max-length": 100000
+        "x-message-ttl": 18000000,
+        "x-max-length": 500000
+      }
+    },
+    {
+      "name": "guard.logs.queue.shard-1",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "guard.dlx",
+        "x-dead-letter-routing-key": "log.dead",
+        "x-message-ttl": 18000000,
+        "x-max-length": 500000
+      }
+    },
+    {
+      "name": "guard.logs.queue.shard-2",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "guard.dlx",
+        "x-dead-letter-routing-key": "log.dead",
+        "x-message-ttl": 18000000,
+        "x-max-length": 500000
+      }
+    },
+    {
+      "name": "guard.logs.queue.shard-3",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "guard.dlx",
+        "x-dead-letter-routing-key": "log.dead",
+        "x-message-ttl": 18000000,
+        "x-max-length": 500000
       }
     },
     {
@@ -61,9 +97,33 @@
     {
       "source": "guard.exchange",
       "vhost": "/",
-      "destination": "guard.logs.queue",
+      "destination": "guard.logs.queue.shard-0",
       "destination_type": "queue",
-      "routing_key": "log.ingest",
+      "routing_key": "log.ingest.shard-0",
+      "arguments": {}
+    },
+    {
+      "source": "guard.exchange",
+      "vhost": "/",
+      "destination": "guard.logs.queue.shard-1",
+      "destination_type": "queue",
+      "routing_key": "log.ingest.shard-1",
+      "arguments": {}
+    },
+    {
+      "source": "guard.exchange",
+      "vhost": "/",
+      "destination": "guard.logs.queue.shard-2",
+      "destination_type": "queue",
+      "routing_key": "log.ingest.shard-2",
+      "arguments": {}
+    },
+    {
+      "source": "guard.exchange",
+      "vhost": "/",
+      "destination": "guard.logs.queue.shard-3",
+      "destination_type": "queue",
+      "routing_key": "log.ingest.shard-3",
       "arguments": {}
     },
     {
