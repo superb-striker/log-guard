@@ -7,6 +7,7 @@ import com.example.logguard.service.LogIngestionService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,12 +61,20 @@ public class LogIngestionController {
     }
 
     /**
-     * Batch ingestion - each entry is validated and published individually.
-     * Partial failure: entries that fail validation return 400; valid ones are still queued.
+     * Batch ingestion is atomic at the validation boundary: an empty or
+     * partially invalid request is rejected before any entries are queued.
      */
     @PostMapping("/batch")
     public ResponseEntity<Map<String, Object>> ingestBatch(
             @Valid @RequestBody java.util.List<@Valid LogEntryDTO> dtos) {
+        if (dtos.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "rejected",
+                "queued", 0,
+                "message", "Batch must contain at least one log entry"
+            ));
+        }
+
         dtos.forEach(ingestionService::ingest);
         return ResponseEntity
             .status(HttpStatus.ACCEPTED)
@@ -80,7 +89,8 @@ public class LogIngestionController {
     
     @GetMapping
     public ResponseEntity<Page<LogEntry>> getLogs(
-            @PageableDefault(size = 20, sort = "timestamp") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
+            Pageable pageable) {
         return ResponseEntity.ok(repository.findAll(pageable));
     }
 
