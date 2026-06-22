@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   verify:
@@ -26,3 +27,25 @@ jobs:
 
       - name: Run unit and integration verification
         run: ./mvnw --batch-mode --no-transfer-progress verify
+
+      - name: Publish JUnit results
+        if: always() && !cancelled()
+        uses: dorny/test-reporter@v2
+        with:
+          name: JUnit test results
+          path: |
+            target/surefire-reports/*.xml
+            target/failsafe-reports/*.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Archive JaCoCo HTML and XML reports
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: |
+            target/site/jacoco/
+            target/site/jacoco/jacoco.xml
+          if-no-files-found: error
+          retention-days: 14
