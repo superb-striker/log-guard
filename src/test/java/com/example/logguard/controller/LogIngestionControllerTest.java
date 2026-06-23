@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 
 import java.time.Instant;
 import java.util.List;
@@ -46,6 +47,7 @@ class LogIngestionControllerTest {
         mockMvc = MockMvcBuilders
             .standaloneSetup(new LogIngestionController(ingestionService, repository))
             .setControllerAdvice(new GlobalExceptionHandler())
+            .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
             .setValidator(validator)
             .build();
     }
