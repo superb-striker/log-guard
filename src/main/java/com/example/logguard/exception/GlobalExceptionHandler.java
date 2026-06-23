@@ -8,6 +8,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -51,6 +52,21 @@ public class GlobalExceptionHandler {
         detail.setDetail("One or more fields failed validation");
         detail.setProperty("timestamp",    Instant.now().toString());
         detail.setProperty("fieldErrors",  fieldErrors);
+        return detail;
+    }
+
+    /** Handles validation failures for container elements such as batch entries. */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ProblemDetail handleMethodValidationErrors(HandlerMethodValidationException ex) {
+        ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        detail.setTitle("Validation Failed");
+        detail.setDetail("One or more batch entries failed validation");
+        detail.setProperty("timestamp", Instant.now().toString());
+        detail.setProperty("errors", ex.getAllErrors().stream()
+            .map(error -> error.getDefaultMessage() != null
+                ? error.getDefaultMessage()
+                : "Invalid value")
+            .toList());
         return detail;
     }
 
