@@ -124,8 +124,8 @@ public class PersonallyIdentifiableInfoRedactionService {
      *   91 9876543210
      */
     private static final Pattern PHONE = Pattern.compile(
-	    "\\b(?:(?:\\+91|91|0)[\\s\\-]?)?[6-9](?:[\\s\\-]?\\d){9}\\b"
-	);
+        "(?<!\\d)(?:(?:\\+91|91|0)[\\s\\-]?)?[6-9](?:[\\s\\-]?\\d){9}(?!\\d)"
+    );
 
     /**
      * AADHAAR - 12-digit Indian government identity number.
