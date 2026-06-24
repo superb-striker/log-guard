@@ -24,7 +24,7 @@ class PersonallyIdentifiableInfoRedactionServiceTest {
     @ParameterizedTest(name = "redacts {0}")
     @MethodSource("piiExamples")
     void redactsEverySupportedPiiCategory(String category, String value, String replacement) {
-        assertThat(service.redact("value=" + value)).isEqualTo("value=" + replacement);
+        assertThat(service.redact("PII " + value)).isEqualTo("PII " + replacement);
     }
 
     static Stream<Arguments> piiExamples() {
